@@ -72,6 +72,7 @@ def chat_endpoint():
 @app.route("/health", methods=["GET"])
 def health_check():
     """Health check endpoint to verify API is running."""
+    print('I am running !')
     return jsonify({"status": "ok"})
 
 
