@@ -11,8 +11,8 @@ from flask import Flask, request, jsonify
 app = Flask(__name__)
 
 # Initialize logging and tracing objects
-logger = get_logger(__name__)
-tracer = trace.get_tracer(__name__)
+#logger = get_logger(__name__)
+#tracer = trace.get_tracer(__name__)
 
 # # Create a project client using environment variables
 # project = AIProjectClient.from_connection_string(
