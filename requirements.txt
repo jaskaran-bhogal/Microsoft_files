@@ -10,3 +10,4 @@ azure.ai.evaluation
 azure-ai-evaluation[remote]
 flask
 gunicorn
+unicorn
