@@ -73,29 +73,35 @@ def bot_service_endpoint():
     """API Endpoint for Azure Bot Service to handle Teams chat."""
     try:
         data = request.json
+        print(f"Received payload: {data}")
 
-        # Ensure it's a message event
-        if data.get("type") != "message":
+        # Validate incoming request type
+        if not data or "type" not in data or data["type"] != "message":
             return jsonify({"type": "message", "text": "Unsupported event type."}), 200
 
-        user_message = data.get("text", "")
-        context = {}  # You can extend this if needed
+        user_message = data.get("text", "").strip()
+        if not user_message:
+            return jsonify({"type": "message", "text": "I didn't receive any text message."}), 200
 
-        # Structure the message like the existing chat API expects
+        # Structure the message for chat_with_products
         messages = [{"role": "user", "content": user_message}]
+        context = {}  # Extend this if needed
 
-        # Call your existing chat logic function directly
+        # Call your chatbot function
         response = chat_with_products(messages, context)
-
-        # Extract the response message
+        print(response)
+        # Convert response to text
         chatbot_reply = response if isinstance(response, str) else str(response)
 
-        # Return response in the expected bot format
-        return jsonify({"type": "message", "text": chatbot_reply})
+        # Return the expected bot response format
+        return jsonify({
+            "type": "message",
+            "text": chatbot_reply
+        })
 
     except Exception as e:
-        return jsonify({"type": "message", "text": f"Error: {str(e)}"}), 500
-
+       
+        return jsonify({"type": "message", "text": "An error occurred while processing your request."}), 500
 
 
 @app.route("/health", methods=["GET"])
