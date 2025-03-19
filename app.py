@@ -98,10 +98,15 @@ def bot_service_endpoint():
         chatbot_reply = response if isinstance(response, str) else str(response)
 
         # Return the expected bot response format
+
         return jsonify({
-            "type": "message",
-            "text": chatbot_reply
-        })
+                "type": "message",
+                "text": chatbot_reply,
+                "from": {"id": "bot"},
+                "recipient": "data",  # Send response back to the user
+                "conversation": "conversation",
+                "timestamp": "timestamp"
+            })
 
     except Exception as e:
        
