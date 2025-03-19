@@ -6,7 +6,9 @@ from azure.identity import DefaultAzureCredential
 from config import ASSET_PATH, get_logger
 from get_product_documents import get_product_documents
 from azure.ai.inference.prompts import PromptTemplate
+import json
 
+LOG_FILE = "requests_log.jsonl"
 # Initialize Flask app
 app = Flask(__name__)
 
@@ -73,6 +75,8 @@ def bot_service_endpoint():
     """API Endpoint for Azure Bot Service to handle Teams chat."""
     try:
         data = request.json
+        with open(LOG_FILE, "a", encoding="utf-8") as log_file:
+            log_file.write(json.dumps(data, ensure_ascii=False) + "\n")
         print(f"Received payload: {data}")
 
         # Validate incoming request type
