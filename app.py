@@ -68,6 +68,35 @@ def chat_endpoint():
         logger.error(f"Error in /chat endpoint: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
+@app.route("/api/messages", methods=["POST"])
+def bot_service_endpoint():
+    """API Endpoint for Azure Bot Service to handle Teams chat."""
+    try:
+        data = request.json
+
+        # Ensure it's a message event
+        if data.get("type") != "message":
+            return jsonify({"type": "message", "text": "Unsupported event type."}), 200
+
+        user_message = data.get("text", "")
+        context = {}  # You can extend this if needed
+
+        # Structure the message like the existing chat API expects
+        messages = [{"role": "user", "content": user_message}]
+
+        # Call your existing chat logic function directly
+        response = chat_with_products(messages, context)
+
+        # Extract the response message
+        chatbot_reply = response if isinstance(response, str) else str(response)
+
+        # Return response in the expected bot format
+        return jsonify({"type": "message", "text": chatbot_reply})
+
+    except Exception as e:
+        return jsonify({"type": "message", "text": f"Error: {str(e)}"}), 500
+
+
 
 @app.route("/health", methods=["GET"])
 def health_check():
