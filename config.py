@@ -11,6 +11,8 @@ from azure.ai.inference.tracing import AIInferenceInstrumentor
 # load environment variables from the .env file
 from dotenv import load_dotenv
 
+
+
 load_dotenv()
 
 # Set "./assets" as the path where assets are stored, resolving the absolute path:
@@ -21,6 +23,13 @@ logger = logging.getLogger("app")
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler(stream=sys.stdout))
 
+
+class DefaultConfig:
+    """ Bot Configuration """
+
+    PORT = 8000
+    APP_ID = os.environ.get("MicrosoftAppId", "")
+    APP_PASSWORD = os.environ.get("MicrosoftAppPassword", "")
 
 # Returns a module-specific logger, inheriting from the root app logger
 def get_logger(module_name):

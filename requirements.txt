@@ -11,3 +11,4 @@ azure-ai-evaluation[remote]
 flask
 gunicorn
 unicorn
+botbuilder-integration-aiohttp>=4.14.0
