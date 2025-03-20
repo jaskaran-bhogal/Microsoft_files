@@ -23,8 +23,7 @@ from azure.ai.inference.prompts import PromptTemplate
 import json
 
 
-# Import your bot logic here
-from bot import MyBot  # Ensure this file exists with your bot logic
+  # Ensure this file exists with your bot logic
 from config import DefaultConfig  # Ensure this config file exists
 
 from botbuilder.core import ActivityHandler, TurnContext
@@ -126,6 +125,7 @@ ADAPTER.on_turn_error = on_error
 # Create the bot instance
 BOT = MyBot()
 
+LOG_FILE = "seccess_log.jsonl"
 
 async def messages(req: Request) -> Response:
     """
@@ -139,6 +139,8 @@ async def messages(req: Request) -> Response:
     try:
         body = await req.json()
         print("Received Payload:", json.dumps(body, indent=4))
+        with open(LOG_FILE, "a", encoding="utf-8") as log_file:
+                log_file.write(json.dumps(body, ensure_ascii=False) + "\n")
 
         activity = Activity().deserialize(body)
         auth_header = req.headers.get("Authorization", "")
@@ -148,7 +150,9 @@ async def messages(req: Request) -> Response:
         
 
         if response:
+        
             return json_response(data=response.body, status=response.status)
+        
         return Response(status=201)
 
     except Exception as e:
