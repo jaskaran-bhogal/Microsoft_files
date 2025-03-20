@@ -167,6 +167,8 @@ APP.router.add_post("/api/messages", messages)
 
 if __name__ == "__main__":
     try:
-        web.run_app(APP, host="0.0.0.0", port=CONFIG.PORT)
+        with open(LOG_FILE, "a", encoding="utf-8") as log_file:
+                log_file.write("Ran application \n")
+        web.run_app(APP, host="0.0.0.0", port= int(os.environ.get("PORT", 8000)))
     except Exception as error:
         raise error
