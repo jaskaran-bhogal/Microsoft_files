@@ -1,48 +1,36 @@
 import os
-import sys
-import traceback
-from datetime import datetime
-from aiohttp import web
-from aiohttp.web import Request, Response, json_response
-from botbuilder.core import TurnContext
-from botbuilder.core.integration import aiohttp_error_middleware
-from botbuilder.integration.aiohttp import CloudAdapter, ConfigurationBotFrameworkAuthentication
-from botbuilder.schema import Activity, ActivityTypes
-from botbuilder.core import ActivityHandler
-from botbuilder.schema import ChannelAccount
-
+import streamlit as st
 from opentelemetry import trace
 from azure.ai.projects import AIProjectClient
 from azure.identity import DefaultAzureCredential
-
-from config import ASSET_PATH, get_logger, DefaultConfig
+from config import ASSET_PATH, get_logger
 from get_product_documents import get_product_documents
 from azure.ai.inference.prompts import PromptTemplate
-import json
 
-LOG_FILE = os.environ.get("LOG_FILE", "seccess_log.jsonl")
-# Initialize config
-CONFIG = DefaultConfig()
-
-# Logging and tracing
+# Initialize logging and tracing objects
 logger = get_logger(__name__)
 tracer = trace.get_tracer(__name__)
 
-# Create Azure AI project client
-project = AIProjectClient.from_connection_string(
-    conn_str=os.environ["AIPROJECT_CONNECTION_STRING"],
-    credential=DefaultAzureCredential()
-)
+# Set Streamlit page config
+st.set_page_config(page_title="Azure AI Chatbot", layout="wide")
 
-# Chat client from the AI project
+# Create project client and chat client
+project = AIProjectClient.from_connection_string(
+    conn_str=os.environ["AIPROJECT_CONNECTION_STRING"], credential=DefaultAzureCredential()
+)
 chat = project.inference.get_chat_completions_client()
 
-# Prompt-based product chat handler
-def chat_with_products(messages: list, context: dict = None) -> dict:
-    documents = get_product_documents(messages, context)
-    grounded_chat_prompt = PromptTemplate.from_prompty(os.path.join(ASSET_PATH, "grounded_chat.prompty"))
-    system_message = grounded_chat_prompt.create_messages(documents=documents, context=context)
+# Load prompt template once
+grounded_chat_prompt = PromptTemplate.from_prompty(os.path.join(ASSET_PATH, "grounded_chat.prompty"))
 
+def chat_with_products(messages: list, context: dict = None) -> dict:
+    """Handles chatbot response using Azure AI and product document retrieval."""
+    if context is None:
+        context = {}
+
+    documents = get_product_documents(messages, context)
+    system_message = grounded_chat_prompt.create_messages(documents=documents, context=context)
+    
     response = chat.complete(
         model=os.environ["CHAT_MODEL"],
         messages=system_message + messages,
@@ -50,86 +38,39 @@ def chat_with_products(messages: list, context: dict = None) -> dict:
     )
 
     logger.info(f"💬 Response: {response.choices[0].message}")
-    return response.choices[0].message
+    return {"message": response.choices[0].message, "context": context}
 
+# Streamlit UI
+st.title("🤖 Drilling bot assistant")
+st.markdown("Ask anything about Drilling & Oil...")
+if "messages" not in st.session_state:
+    st.session_state["messages"] = []
 
-# Bot class handling message activity
-class MyBot(ActivityHandler):
-    async def on_message_activity(self, turn_context: TurnContext):
-        messages = [{"role": "user", "content": turn_context.activity.text}]
-        await turn_context.send_activity(chat_with_products(messages, {}).content)
+# Display previous messages
+for msg in st.session_state["messages"]:
+    role = msg["role"]
+    avatar = "🧑" if role == "user" else "🤖"
+    with st.chat_message(role, avatar=avatar):
+        st.markdown(msg["content"])
 
-    async def on_members_added_activity(self, members_added: ChannelAccount, turn_context: TurnContext):
-        for member in members_added:
-            if member.id != turn_context.activity.recipient.id:
-                await turn_context.send_activity("Hello and welcome!")
+# Handle new user input
+if prompt := st.chat_input("What would you like to ask?"):
+    # Show user message on right
+    with st.chat_message("user", avatar="🧑"):
+        st.markdown(prompt)
+    st.session_state["messages"].append({"role": "user", "content": prompt})
 
+    # Generate bot response
+    with st.spinner("Thinking..."):
+        try:
+            response = chat_with_products(st.session_state["messages"])
+            bot_reply = response["message"]["content"]
+        except Exception as e:
+            bot_reply = f"❌ Error: {str(e)}"
+            logger.error(f"Error during chat: {str(e)}")
 
-# Azure-authenticated CloudAdapter
-ADAPTER = CloudAdapter(ConfigurationBotFrameworkAuthentication(CONFIG))
+    # Show assistant message on left
+    with st.chat_message("assistant", avatar="🤖"):
+        st.markdown(bot_reply)
+    st.session_state["messages"].append({"role": "assistant", "content": bot_reply})
 
-
-
-
-# Error handling
-async def on_error(context: TurnContext, error: Exception):
-    print(f"\n[on_turn_error] unhandled error: {error}", file=sys.stderr)
-    traceback.print_exc()
-
-    await context.send_activity("The bot encountered an error or bug.")
-    await context.send_activity("Please check the bot's source code for issues.")
-
-    if context.activity.channel_id == "emulator":
-        trace_activity = Activity(
-            label="TurnError",
-            name="on_turn_error Trace",
-            timestamp=datetime.utcnow(),
-            type=ActivityTypes.trace,
-            value=f"{error}",
-            value_type="https://www.botframework.com/schemas/error",
-        )
-        await context.send_activity(trace_activity)
-
-ADAPTER.on_turn_error = on_error
-
-# Instantiate bot
-BOT = MyBot()
-
-
-async def health(req: Request) -> Response:
-    log_file_path = "seccess_log.jsonl"  # or "requests_log.jsonl" if that's the one you're using
-    try:
-        if not os.path.exists(log_file_path):
-            return json_response({"status": "ok", "logs": []})
-
-        with open(log_file_path, "r", encoding="utf-8") as f:
-            logs = [json.loads(line.strip()) for line in f if line.strip()]
-
-        return json_response({"status": "ok", "logs": logs})
-    except Exception as e:
-        return json_response({"status": "error", "message": str(e)}, status=500)
-
-# API endpoint handler
-async def messages(req: Request) -> Response:
-    try:
-        # Read and log the incoming request body
-        body = await req.json()
-        with open(LOG_FILE, "a", encoding="utf-8") as log_file:
-            log_file.write(json.dumps(body, ensure_ascii=False) + "\n")
-
-        # Let the adapter handle the rest
-        return await ADAPTER.process(req, BOT)
-
-    except Exception as e:
-        print(f"Error processing request: {str(e)}", file=sys.stderr)
-        traceback.print_exc()
-        return json_response({"error": str(e)}, status=500)
-# Web app and routing
-APP = web.Application(middlewares=[aiohttp_error_middleware])
-APP.router.add_post("/api/messages", messages)
-APP.router.add_get("/health", health)
-if __name__ == "__main__":
-    try:
-        web.run_app(APP, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
-    except Exception as error:
-        raise error
