@@ -43,7 +43,7 @@ def get_product_documents(messages: list, context: dict = None) -> dict:
         context = {}
 
     overrides = context.get("overrides", {})
-    top = overrides.get("top", 50)
+    top = overrides.get("top", 100)
 
     # generate a search query from the chat messages
     intent_prompty = PromptTemplate.from_prompty(Path(ASSET_PATH) / "intent_mapping.prompty")

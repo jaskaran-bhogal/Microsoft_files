@@ -6,7 +6,7 @@ from azure.identity import DefaultAzureCredential
 from config import ASSET_PATH, get_logger
 from get_product_documents import get_product_documents
 from azure.ai.inference.prompts import PromptTemplate
-
+import time
 # Initialize logging and tracing objects
 logger = get_logger(__name__)
 tracer = trace.get_tracer(__name__)
@@ -70,7 +70,15 @@ if prompt := st.chat_input("What would you like to ask?"):
             logger.error(f"Error during chat: {str(e)}")
 
     # Show assistant message on left
+    # Show assistant message on left with typing effect
     with st.chat_message("assistant", avatar="🤖"):
-        st.markdown(bot_reply)
+        placeholder = st.empty()
+        typed_text = ""
+        for char in bot_reply:
+            typed_text += char
+            placeholder.markdown(typed_text + "▌")  # Adding a cursor
+            time.sleep(0.01)  # Typing speed (adjust if needed)
+        placeholder.markdown(typed_text)  # Final text without cursor
+
     st.session_state["messages"].append({"role": "assistant", "content": bot_reply})
 
